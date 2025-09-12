@@ -1,0 +1,13 @@
+model:
+  path: models/yolov8n-pose.xml
+  device: CPU
+  img_size: 640
+input:
+  source: 0   # 0 for default webcam
+  max_frame: 0
+performance:
+  skip: 0
+draw:
+  skeleton: true
+  keypoint_radius: 3
+  thickness: 2

@@ -1,0 +1,5 @@
+openvino
+opencv-python
+pillow
+pyyaml
+numpy

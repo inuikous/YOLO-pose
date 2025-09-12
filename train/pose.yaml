@@ -1,0 +1,36 @@
+# 最小限 Pose 用 データセット設定 (単一クラス: person)
+# ここだけあれば学習可能。
+# path はこの YAML 位置からの相対 or 絶対パス。
+
+path: C:/data/pose   # 画像/ラベル ルート (必要に応じて変更)
+train: images/train   # path/train ではなく相対指定
+val: images/val
+# test: images/test   # 任意
+
+nc: 1
+names: [person]
+
+# keypoints 数=17, (x,y,visibility)
+kpt_shape: [17, 3]
+
+# COCO 準拠 skeleton（1-based index）
+skeleton:
+  - [16, 14]
+  - [14, 12]
+  - [17, 15]
+  - [15, 13]
+  - [12, 13]
+  - [6, 12]
+  - [7, 13]
+  - [6, 7]
+  - [6, 8]
+  - [7, 9]
+  - [8, 10]
+  - [9, 11]
+  - [2, 3]
+  - [1, 2]
+  - [1, 3]
+  - [2, 4]
+  - [3, 5]
+  - [4, 6]
+  - [5, 7]

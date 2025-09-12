@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.env
+.env.*
+
+# Virtual environments
+/venv/*
+!/venv/.gitkeep
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Outputs
+runs/
+outputs/
+*.onnx
+*.engine
+
+# Cache
+*.cache
+*.tmp
+
+# Model weights (allow IR xml/bin in pose_viewer/models)
+*.pt
+!pose_viewer/models/*.xml
+!pose_viewer/models/*.bin
+
+# Datasets (keep metadata, ignore bulk images caches)
+train/coco_mini_pose/
+train/dummy_pose_dataset/
+
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
