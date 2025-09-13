@@ -1,13 +1,20 @@
 model:
-  path: models/yolov8n-pose.xml
+  path: models/test.xml
   device: CPU
   img_size: 640
 input:
   source: 0   # 0 for default webcam
   max_frame: 0
+  capture:
+    width: 1280   # 0 or omit to keep camera default
+    height: 720   # 0 or omit to keep camera default
+    fps: 30       # 0 or omit to keep camera default
 performance:
   skip: 0
 draw:
   skeleton: true
   keypoint_radius: 3
   thickness: 2
+display:
+  width: 1200     # GUI display area width
+  height: 900    # GUI display area height

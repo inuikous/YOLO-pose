@@ -30,10 +30,10 @@ outputs/
 *.cache
 *.tmp
 
-# Model weights (allow IR xml/bin in pose_viewer/models)
+# Model weight
 *.pt
-!pose_viewer/models/*.xml
-!pose_viewer/models/*.bin
+*.xml
+*.bin
 
 # Datasets (keep metadata, ignore bulk images caches)
 train/coco_mini_pose/
