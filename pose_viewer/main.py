@@ -22,6 +22,7 @@ from PIL import Image
 from backend_openvino import OpenVinoPoseBackend
 from gui import PoseViewerApp
 from pose_draw import draw_pose
+from settings import load_settings
 
 
 # -------------- Helpers --------------
@@ -67,7 +68,12 @@ class CaptureController:
             model_xml_path=str(model_path),
             device=self.cfg["model"].get("device", "CPU"),
             img_size=self.cfg["model"].get("img_size", 640),
+            conf_thres=float(self.cfg.get("postprocess", {}).get("det_confidence", 0.25)),
+            max_detections=int(self.cfg.get("postprocess", {}).get("max_detections", 10)),
+            kpt_conf_thres=float(self.cfg.get("postprocess", {}).get("kpt_confidence", 0.20)),
+            nms_iou_thres=float(self.cfg.get("postprocess", {}).get("nms_iou", 0.45)),
         )
+        # 以降、max_detections は backend 生成時に設定済み
         self.cap = None
         self.frame_queue: queue.Queue = queue.Queue(maxsize=1)
         self.last_fps = 0.0
@@ -78,7 +84,21 @@ class CaptureController:
         """キャプチャスレッドを開始し、必要ならキャプチャ設定を適用します。"""
         if self.running:
             return
-        source = self.cfg["input"].get("source", 0)
+        source_cfg = self.cfg["input"].get("source", 0)
+        # 入力ソース: 数値/数値文字列→int、ファイル/URL 文字列→パス解決
+        source = source_cfg
+        if isinstance(source_cfg, str):
+            src_str = source_cfg.strip()
+            if src_str.isdigit():
+                source = int(src_str)
+            elif src_str.lower().startswith(("rtsp://", "http://", "https://")):
+                source = src_str
+            else:
+                # 相対パスは base_dir 基準で解決
+                p = Path(src_str)
+                if not p.is_absolute():
+                    p = (self.base_dir / p).resolve()
+                source = str(p)
         self.cap = cv2.VideoCapture(source)
         # Apply capture settings if provided
         cap_cfg = self.cfg["input"].get("capture", {})
@@ -121,16 +141,27 @@ class CaptureController:
             detections = self.backend.infer(frame)
             # Draw each detection
             persons = 0
+            draw_cfg = self.cfg.get("draw", {})
+            skel_on = bool(draw_cfg.get("skeleton", True))
+            kp_radius = int(draw_cfg.get("keypoint_radius", 3))
+            thick = int(draw_cfg.get("thickness", 2))
+            # 標準的な COCO-17 の 0-based スケルトン定義
+            # 参考: Ultralytics 等のデフォルト
+            coco17_skeleton_0based = [
+                (15, 13), (13, 11), (16, 14), (14, 12), (11, 12), (5, 11), (6, 12),
+                (5, 6), (5, 7), (7, 9), (6, 8), (8, 10), (1, 2), (0, 1), (0, 2), (1, 3), (2, 4)
+            ]
+
             for det in detections:
                 persons += 1
+                skeleton_pairs = coco17_skeleton_0based if skel_on else None
                 frame = draw_pose(
                     frame,
                     det["keypoints"],
-                    skeleton=[
-                        (16, 14), (14, 12), (17, 15), (15, 13), (12, 6), (13, 6),
-                        (6, 7), (7, 8), (8, 9), (9, 10), (6, 2), (2, 3), (3, 4),
-                        (6, 1), (1, 5), (5, 11), (11, 12)
-                    ],
+                    skeleton=skeleton_pairs,
+                    radius=kp_radius,
+                    thickness=thick,
+                    min_kpt_score=float(self.cfg.get("postprocess", {}).get("kpt_confidence", 0.20)),
                 )
 
             # FPS calc
@@ -153,14 +184,47 @@ def main():
     """アプリケーションのメイン関数。設定読み込み→GUI 起動を行います。"""
     # 設定を読み込んで GUI に表示サイズを渡す
     base_dir = get_base_dir()
-    cfg = load_config(base_dir)
+    cfg_obj = load_settings(base_dir)
 
-    disp_cfg = cfg.get("display", {})
+    disp_cfg = {
+        "width": cfg_obj.display.width,
+        "height": cfg_obj.display.height,
+    }
     app = PoseViewerApp(
         display_w=int(disp_cfg.get("width", 960)),
         display_h=int(disp_cfg.get("height", 540)),
     )
-    controller = CaptureController(app, cfg=cfg, base_dir=base_dir)
+    # 既存のControllerは辞書型設定を期待しているため、既存構造に合わせて辞書化
+    cfg_dict = {
+        "model": {
+            "path": cfg_obj.model.path,
+            "device": cfg_obj.model.device,
+            "img_size": cfg_obj.model.img_size,
+        },
+        "input": {
+            "source": cfg_obj.input.source,
+            "max_frame": cfg_obj.input.max_frame,
+            "capture": {
+                "width": cfg_obj.input.capture.width,
+                "height": cfg_obj.input.capture.height,
+                "fps": cfg_obj.input.capture.fps,
+            },
+        },
+        "performance": {"skip": cfg_obj.performance.skip},
+        "postprocess": {
+            "det_confidence": cfg_obj.postprocess.det_confidence,
+            "kpt_confidence": cfg_obj.postprocess.kpt_confidence,
+            "max_detections": cfg_obj.postprocess.max_detections,
+            "nms_iou": cfg_obj.postprocess.nms_iou,
+        },
+        "draw": {
+            "skeleton": cfg_obj.draw.skeleton,
+            "keypoint_radius": cfg_obj.draw.keypoint_radius,
+            "thickness": cfg_obj.draw.thickness,
+        },
+        "display": {"width": cfg_obj.display.width, "height": cfg_obj.display.height},
+    }
+    controller = CaptureController(app, cfg=cfg_dict, base_dir=base_dir)
 
     def on_start():
         try:
@@ -175,6 +239,8 @@ def main():
         app.set_running_state(False)
 
     app.set_start_stop_callbacks(on_start, on_stop)
+    # 起動時に自動的に開始（Start 状態から開始）
+    app.after(0, on_start)
     app.mainloop()
 
 
