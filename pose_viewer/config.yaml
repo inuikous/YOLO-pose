@@ -1,5 +1,5 @@
 model:
-  path: models/test.xml
+  path: models/yolo11x-pose.xml
   device: CPU
   img_size: 640
 input:
