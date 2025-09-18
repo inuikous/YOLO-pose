@@ -1,7 +1,9 @@
 model:
-  path: models/yolo11x-pose.xml
+  path: models/yolo11x-pose.xml  # RCNN IR (switch back to YOLO if needed)
   device: CPU
   img_size: 640
+  # backend: auto | yolo | rcnn
+  backend: auto
 input:
   source: 0   # 0 for default webcam
   max_frame: 0

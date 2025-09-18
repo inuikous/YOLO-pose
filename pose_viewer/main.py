@@ -20,6 +20,7 @@ import cv2
 from PIL import Image
 
 from backend_openvino import OpenVinoPoseBackend
+from backend_keypointrcnn_openvino import OpenVinoKeypointRCNNBackend
 from gui import PoseViewerApp
 from pose_draw import draw_pose
 from settings import load_settings
@@ -64,15 +65,41 @@ class CaptureController:
         if not model_path.exists():
             raise RuntimeError(f"Model XML not found: {model_path}")
 
-        self.backend = OpenVinoPoseBackend(
-            model_xml_path=str(model_path),
-            device=self.cfg["model"].get("device", "CPU"),
-            img_size=self.cfg["model"].get("img_size", 640),
-            conf_thres=float(self.cfg.get("postprocess", {}).get("det_confidence", 0.25)),
-            max_detections=int(self.cfg.get("postprocess", {}).get("max_detections", 10)),
-            kpt_conf_thres=float(self.cfg.get("postprocess", {}).get("kpt_confidence", 0.20)),
-            nms_iou_thres=float(self.cfg.get("postprocess", {}).get("nms_iou", 0.45)),
-        )
+        # Backend selection: YOLO-style vs Keypoint RCNN
+        backend_kind = str(self.cfg["model"].get("backend", "auto")).lower()
+        model_name = model_path.name.lower()
+        use_rcnn = False
+        if backend_kind == "rcnn":
+            use_rcnn = True
+        elif backend_kind == "yolo":
+            use_rcnn = False
+        else:
+            # auto: pick by filename hint
+            if any(k in model_name for k in ["keypointrcnn", "kprcnn", "rcnn"]):
+                use_rcnn = True
+            else:
+                use_rcnn = False
+
+        if use_rcnn:
+            self.backend = OpenVinoKeypointRCNNBackend(
+                model_xml_path=str(model_path),
+                device=self.cfg["model"].get("device", "CPU"),
+                img_size=self.cfg["model"].get("img_size", 640),
+                conf_thres=float(self.cfg.get("postprocess", {}).get("det_confidence", 0.25)),
+                max_detections=int(self.cfg.get("postprocess", {}).get("max_detections", 10)),
+                kpt_conf_thres=float(self.cfg.get("postprocess", {}).get("kpt_confidence", 0.20)),
+                nms_iou_thres=float(self.cfg.get("postprocess", {}).get("nms_iou", 0.45)),
+            )
+        else:
+            self.backend = OpenVinoPoseBackend(
+                model_xml_path=str(model_path),
+                device=self.cfg["model"].get("device", "CPU"),
+                img_size=self.cfg["model"].get("img_size", 640),
+                conf_thres=float(self.cfg.get("postprocess", {}).get("det_confidence", 0.25)),
+                max_detections=int(self.cfg.get("postprocess", {}).get("max_detections", 10)),
+                kpt_conf_thres=float(self.cfg.get("postprocess", {}).get("kpt_confidence", 0.20)),
+                nms_iou_thres=float(self.cfg.get("postprocess", {}).get("nms_iou", 0.45)),
+            )
         # 以降、max_detections は backend 生成時に設定済み
         self.cap = None
         self.frame_queue: queue.Queue = queue.Queue(maxsize=1)

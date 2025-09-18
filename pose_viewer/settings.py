@@ -16,6 +16,7 @@ class ModelSettings:
     path: str
     device: str = "CPU"
     img_size: int = 640
+    backend: str = "auto"
 
 
 @dataclass
@@ -103,6 +104,7 @@ def load_settings(base_dir: Path, filename: str = "config.yaml") -> AppSettings:
         path=str(model_raw.get("path", "models/test.xml")),
         device=str(model_raw.get("device", "CPU")),
         img_size=_as_int(model_raw, "img_size", 640),
+        backend=str(model_raw.get("backend", "auto")),
     )
 
     # input
